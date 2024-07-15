@@ -33,7 +33,7 @@
 
 :global checkDhcpClient do={ # arg input "$interface" 
     :if ([:len [/ip dhcp-client find interface=$1]] = 0) do={
-        /ip dhcp-client add interface=$1 dhcp-options="$1,clientid" use-peer-dns=yes add-default-route=no disable=no ; };
+        /ip dhcp-client add interface=$1 dhcp-options="$1,clientid" use-peer-dns=no add-default-route=no disable=no ; };
 };
 
 :global removeDhcpClient do={ # arg input "$interface" 
@@ -51,7 +51,7 @@
 
 :global checkFailoverInterface do={ # arg input "$name" "$dstAddressCheck"
     :if ([:len [/ip route find comment="F$1"]] = 0) do={
-        /ip route add dst-address=$2 gateway="spoof" distance=2 comment="F$1" check=arp 
+        /ip route add dst-address=$2 gateway="spoof" distance=2 comment="F$1" check=no 
     };
 };
 
@@ -70,13 +70,13 @@
 
 :global checkAndChangeGateway do={# arg input "$interface" "$name" "$gateway"
     :if ([/ip dhcp-client get [find interface=$1] value-name=gateway] != $3 ) do={
-        :delay 1
-        :local Gateway ;
-        :set Gateway [/ip dhcp-client get [find interface=$1] value-name=gateway];
-        :put $Gateway ;
-        :if ([:len $Gateway] != 0 ) do={
-            /ip route set gateway="$Gateway%$1" [find comment=$1]
-            /ip route set gateway="$Gateway%$1" [find comment=$2]
+        :delay 5
+        :local cGateway ;
+        :set cGateway [/ip dhcp-client get [find interface="$1"] value-name=gateway];
+        :put $cGateway ;
+        :if ([:len $cGateway] != 0 ) do={
+            /ip route set gateway="$cGateway%$1" [find comment=$1]
+            /ip route set gateway="$cGateway%$1" [find comment=$2]
         };
     };
 };
@@ -114,7 +114,8 @@
 
 :global scanMode do={ # arg input "$interface" "$mode"
     :if ($2 = 1) do={
-        /interface wireless set $1 mac-address=00:00:00:00:00:26
+        :global randomMac;
+        $randomMac $1
     };
 };
 
@@ -163,4 +164,64 @@
             :put "missing dhcp client...";
         };
     };
+};
+
+:global randomnum do={
+    /system resource irq
+    :local tmpsum 0
+    :foreach i in=[find] do={:set tmpsum ($tmpsum + [get $i count])}
+    :set   tmpsum [:tostr $tmpsum]
+    :local lentmp [:len   $tmpsum]
+    :return [:tonum [:pick $tmpsum ($lentmp - 2) $lentmp]]
+};
+
+:global randomMac do={ # arg input "$interface" 
+    :global randomnum ;
+    :global waitingDhcpBound ;
+    :global changeMacAddress ;
+    :global generateDhcpCustomHostname ;
+    :local arrhex [:toarray "0,1,2,3,4,5,6,7,8,9,A,B,C,D,E,F"]
+    :local rndmac ; :local tmp
+    :for x from=1 to=12 step=1 do={
+        :set tmp ([$randomnum] % 16)
+        # this makes it always a valid MAC
+        :if ($x =  2) do={:set tmp (($tmp | 0x2) & 0xE)}
+        :set rndmac "$rndmac$($arrhex->$tmp)"
+        :if ([:tostr [:len $rndmac]] ~ "(2|5|8|11|14)") do={:set rndmac "$rndmac:"}
+    };
+    :put  $rndmac;
+    :do { $generateDhcpCustomHostname $1 4e} on-error={:put "error generateDhcpCustomHostname"};
+    :do { $changeMacAddress $1 $rndmac } on-error={:put "error changeMacAddress"};
+    :do { $waitingDhcpBound $1 } on-error={:put "error waitingDhcpBound"};
+};
+
+:global sortMac do={# arg input "$filemac"
+    :local filesave "$1"
+    :local content [/file get [/file find name=console-dump.txt] contents];
+    :if ([:len [/file find name=$filesave]] = 0) do={
+        /file add name=$filesave
+    };
+    :local lineEnd 0; :local lastEnd 141; :local mac ""; :local macline "";:local findmac "";
+    :while ($lineEnd < [:len $content]) do={
+
+        :set lineEnd [:find $content "\n" $lastEnd];
+        :if ([:len $lineEnd] = 0) do={
+        :set lineEnd [:len $content];
+        } else={
+        :set lineEnd ($lineEnd - 19);
+        :set mac [:pick $content $lastEnd $lineEnd];
+        :set lineEnd ($lineEnd + 19);
+        :set lastEnd ($lineEnd + 1);
+        };
+
+        :set findmac [/file get [/file find name=$filesave] contents];
+        :if ([:len [:find $findmac $mac]] = 0) do={
+            :set macline "\n$mac";
+            /file set $filesave contents=([get $filesave contents]  .$macline )
+            :put "-> $mac saving to list up ... " ;
+        };
+
+    }
+    :do { /file remove console-dump.txt } on-error={:put "error remove console-dump.txt"};
+    
 };
