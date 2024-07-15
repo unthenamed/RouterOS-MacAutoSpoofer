@@ -1,8 +1,8 @@
-:local name "spoof";
+:local name "spoof1";
 :local mode "0";
 :local interface "wlan1";
-:local macList "aysila.txt";
-:local fileSave "macid";
+:local macList "wlan1.txt";
+:local fileSave "VerifedMacs";
 :local dstAddressCheck "1.0.0.1";
 :local gateway "192.168.5.1";
 
@@ -62,7 +62,7 @@
         :do { $addDhcpAntiStuck $interface $name } on-error={:put "error addDhcpAntiStuck"};
         :do { $waitingDhcpBound $interface } on-error={:put "error waitingDhcpBound"};
         :do { $removeDhcpAntiStuck $name } on-error={:put "error removeDhcpAntiStuck"};
-        #:do { $checkAndChangeGateway $interface $name $gateway } on-error={:put "error checkAndChangeGateway"};
+       # :do { $checkAndChangeGateway $interface $name $gateway } on-error={:put "error checkAndChangeGateway"};
         :do { $resetFailoverInterface $name } on-error={:put "error resetFailoverInterface"};
         :delay 5;
      };
