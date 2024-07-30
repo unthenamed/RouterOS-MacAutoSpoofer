@@ -1,27 +1,31 @@
-:local filesave "aysila.txt"
-:local content [/file get [/file find name=console-dump.txt] contents];
-:if ([:len [/file find name=$filesave]] = 0) do={
-    /file add name=$filesave
- };
-:local lineEnd 0; :local lastEnd 140; :local mac ""; :local macline "";:local findmac "";
-:while ($lineEnd < [:len $content]) do={
+:local fileName "console-dump.txt"
 
-    :set lineEnd [:find $content "\n" $lastEnd];
-    :if ([:len $lineEnd] = 0) do={
-      :set lineEnd [:len $content];
-     } else={
-       :set lineEnd ($lineEnd - 21);
-       :set mac [:pick $content $lastEnd $lineEnd];
-       :set lineEnd ($lineEnd + 21);
-       :set lastEnd ($lineEnd + 1);
-     };
+:local fileContent [/file get [/file find name=$fileName] contents]
 
-    :set findmac [/file get [/file find name=$filesave] contents];
-    :if ([:len [:find $findmac $mac]] = 0) do={
-        :set macline "\n$mac";
-        /file set $filesave contents=([get $filesave contents]  .$macline )
-        :put "-> $mac saving to list up ... " ;
-     };
-
+:local isValidMac do={
+    :local mac [$1]
+    :return ([:len $mac] = 17 && [:pick $mac 2 3] = ":" && [:pick $mac 5 6] = ":" && [:pick $mac 8 9] = ":" && [:pick $mac 11 12] = ":" && [:pick $mac 14 15] = ":")
 }
-/file remove console-dump.txt
+
+:local start 0
+:local counter 0
+:local line ""
+:local macAddress ""
+:local end [:find $fileContent "\n" $start]
+
+:while ($end != -1) do={
+    :set line [:pick $fileContent $start $end]
+    :set start ($end + 1)
+    :set end [:find $fileContent "\n" $start]
+
+    :set macAddress [:pick $line 0 17]
+    :if ([$isValidMac $macAddress]) do={
+        :set counter ($counter + 1)
+
+
+        :put "$counter $macAddress"
+        :delay 1
+
+
+    }
+}
