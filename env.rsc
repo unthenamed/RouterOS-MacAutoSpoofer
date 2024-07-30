@@ -208,9 +208,9 @@
         :if ([:len $lineEnd] = 0) do={
         :set lineEnd [:len $content];
         } else={
-        :set lineEnd ($lineEnd - 19);
+        :set lineEnd ($lineEnd - 20);
         :set mac [:pick $content $lastEnd $lineEnd];
-        :set lineEnd ($lineEnd + 19);
+        :set lineEnd ($lineEnd + 20);
         :set lastEnd ($lineEnd + 1);
         };
 
@@ -224,4 +224,184 @@
     }
     :do { /file remove console-dump.txt } on-error={:put "error remove console-dump.txt"};
     
+};
+
+
+:global scan do={
+:local target "wlan3"
+:local targetp "$target.txt"
+:global sortMac
+
+:put "mematikan semua job spoof"
+/system scheduler disable [find name=spoof]
+/system script job remove [find script=spoof1]
+/system script job remove [find script=spoof2]
+/system script job remove [find script=spoof3]
+:delay 2
+
+:put "ketik D  dan Q setelah selesai menscan"
+:delay 2
+/tool mac-scan $target proplist=mac
+:delay 2
+
+
+:put "Parsing Mac"
+$sortMac $targetp
+
+/system scheduler enable [find name=spoof]
+};
+
+:global fvoucher do={
+
+:local gate [/ip dhcp-client get [find interface=$1] value-name=gateway];
+:local scr [/ip dhcp-client get [find interface=$1] value-name=address];
+:local nmask [:find $scr "/"];
+:local srcaddr [:pick $scr 0 $nmask];
+:local url "http://$gate/status";
+:local fetchResult;
+:local response;
+:local data;
+:local startPos;
+:local endPos;
+:local voucherCode;
+:put " $gate $srcaddr ";
+
+:set fetchResult [/tool fetch url=$url mode=http as-value output=user src-address=$srcaddr];
+:if ($fetchResult -> "status" = "finished") do={
+    :set data ($fetchResult -> "data");
+
+    # Find the start position of the voucher code
+    :set startPos [:find $data "<h1>Hi, "];
+    :set endPos [:find $data "!</h1>"];
+
+    # Check if the voucher code header exists
+    :if ($startPos != "") do={
+        :set startPos ($startPos + 8);
+        :set endPos ($endPos);
+
+        :set voucherCode [:pick $data $startPos $endPos];
+
+        :put $voucherCode;
+    } else={
+        :put "Voucher code not found";
+    }
+} else={
+    :put [$fetchResult -> "status"];
+};
+};
+
+
+######### MAIN #########
+
+:global main do={
+:local name $1;
+:local mode $2;
+:local interface $3;
+:local macList $4;
+:local fileSave $5;
+:local dstAddressCheck $6;
+:local gateway $7;
+
+# load all environment
+:global checkFileSaveMacConnected;
+:global saveMacConnected;
+:global checkDhcpCustomHostname;
+:global generateDhcpCustomHostname;
+:global checkDhcpClient;
+:global removeDhcpClient;
+:global checkBridgeNoInternet;
+:global checkFailoverInterface;
+:global checkRouteInterface;
+:global checkAndChangeGateway;
+:global checkNetwatchInterface;
+:global checkNetwatchUnknown;
+:global removeInternetDetect;
+:global firewallState;
+:global scanMode;
+:global keepAliveInternetConnected;
+:global changeMacAddress;
+:global addDhcpAntiStuck;
+:global removeDhcpAntiStuck;
+:global waitingDhcpBound;
+:global nameCustomHost;
+:global keepAliveDelay;
+:global resetFailoverInterface;
+:local interfaces $interface;
+
+# configuration check
+:put "Starting configuration checks...";
+:do { $removeInternetDetect } on-error={:put "Error removing internet detect"};
+:do { $removeDhcpAntiStuck $name } on-error={:put "Error removing DHCP anti-stuck"};
+:do { $checkFileSaveMacConnected $fileSave } on-error={:put "Error checking file save for MAC connected"};
+:do { $checkDhcpCustomHostname $interface $nameCustomHost } on-error={:put "Error checking DHCP custom hostname"};
+:do { $checkDhcpClient $interface } on-error={:put "Error checking DHCP client"};
+:do { $checkBridgeNoInternet } on-error={:put "Error checking bridge no internet"};
+:do { $checkFailoverInterface $name $dstAddressCheck } on-error={:put "Error checking failover interface"};
+:do { $checkRouteInterface $interface $name $gateway $dstAddressCheck } on-error={:put "Error checking route interface"};
+:do { $checkNetwatchInterface $interface } on-error={:put "Error checking netwatch interface"};
+:put "Configuration checks complete.";
+
+
+:local fileContent [/file get [/file find name=$macList] contents]
+:local isValidMac do={
+    :local mac [$1]
+    :return ([:len $mac] = 17 && [:pick $mac 2 3] = ":" && [:pick $mac 5 6] = ":" && [:pick $mac 8 9] = ":" && [:pick $mac 11 12] = ":" && [:pick $mac 14 15] = ":")
+}
+
+:local start 0
+:local counter 0
+:local line ""
+:local macAddress ""
+:local end [:find $fileContent "\n" $start]
+
+:while ($end != -1) do={
+    :set line [:pick $fileContent $start $end]
+    :set start ($end + 1)
+    :set end [:find $fileContent "\n" $start]
+
+    :set macAddress [:pick $line 0 17]
+    :if ([$isValidMac $macAddress]) do={
+        :set counter ($counter + 1)
+        :put "Checking netwatch unknown status...";
+        :do { $checkNetwatchUnknown $interface } on-error={:put "Error checking netwatch unknown status"};
+
+
+        :if ([/tool netwatch get [find comment=$interfaces] value-name=status] = "up") do={
+            :if ([/ip dhcp-client get [find interface=$interfaces] status] = "bound") do={
+                :put "DHCP Client status is bound.";
+                :do { $firewallState $interface 1 } on-error={:put "Error enabling firewall state"};
+                :do { $saveMacConnected $interface $fileSave } on-error={:put "Error saving MAC address"};
+                :do { $scanMode $interface $mode } on-error={:put "Error running scan mode"};
+                :do { $keepAliveInternetConnected $interface $keepAliveDelay $nameCustomHost } on-error={:put "Error keeping alive internet connection"};
+            };
+        };
+        
+        :put "Resetting failover interface...";
+        :do { $resetFailoverInterface $name } on-error={:put "Error resetting failover interface"};
+        :put "Generating DHCP custom hostname...";
+        :do { $generateDhcpCustomHostname $interface $nameCustomHost } on-error={:put "Error generating DHCP custom hostname"};
+        :put "Disabling firewall state...";
+        :do { $firewallState $interface 0 } on-error={:put "Error disabling firewall state"};
+        :put "Changing MAC address...";
+        :do { $changeMacAddress $interface $macAddress } on-error={:put "Error changing MAC address"};
+        :put ""
+        :put "$counter $macAddress"
+        :put "Removing DHCP client...";
+        :do { $removeDhcpClient $interface } on-error={:put "Error removing DHCP client"};
+        :put "Removing internet detect...";
+        :do { $removeInternetDetect } on-error={:put "Error removing internet detect"};
+        :put "Checking DHCP client again...";
+        :do { $checkDhcpClient $interface } on-error={:put "Error checking DHCP client"};
+        :put "Adding DHCP anti-stuck...";
+        :do { $addDhcpAntiStuck $interface $name } on-error={:put "Error adding DHCP anti-stuck"};
+        :put "Waiting for DHCP bound...";
+        :do { $waitingDhcpBound $interface } on-error={:put "Error waiting for DHCP bound"};
+        :put "Removing DHCP anti-stuck...";
+        :do { $removeDhcpAntiStuck $name } on-error={:put "Error removing DHCP anti-stuck"};
+        #:do { $checkAndChangeGateway $interface $name $gateway } on-error={:put "error checkAndChangeGateway"};
+        :put "Resetting failover interface...";
+        :do { $resetFailoverInterface $name } on-error={:put "Error resetting failover interface"};
+        :delay 5;
+    }
+}
 };
