@@ -12,7 +12,7 @@
     ├── config\
     ├── library\
     ├── main\
-    └── run1\
+    └── run1
 
 ### Disclaimer
 
