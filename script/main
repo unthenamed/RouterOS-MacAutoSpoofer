@@ -1,0 +1,66 @@
+:global main do={
+
+:local hw $1
+:global config; :global addExclude;
+:global changeMAC; :global fetchID;
+:global getVRF; :global pingVRF;
+:global randomHW; :global saveMAC;
+
+:local fileConnected ($config -> "saveFile")
+:local fileExclude ($config -> "excludeFile")
+:local up ($config -> "delayUp")
+:local down ($config -> "delayDown")
+:local pingSrc ($config -> "pingSrc")
+:local vrf [$getVRF $hw]
+
+# Main function
+:global macAddresses
+:global macConnected
+:global macExclude
+    :local voucher
+    :local identity
+    :local stuckMac    
+    :foreach index,mac in=$macAddresses do={
+            :if ([:find $macExclude $mac] = [] && [:len [/interface wireless find mac-address=$2]] = 0) do={
+                        
+                :local currentMac [/interface get [find name=$hw] mac]
+                :local change 0
+                :local saveCounter 0                
+                :while ($change = 0) do={
+     
+                    :if ([$pingVRF $vrf $pingSrc] != 0 && [/ip dhcp-client get [find interface=$hw] value-name=status] = "bound") do={
+                        :set change 0
+                        if ($saveCounter = 0) do={
+                            :set voucher [$fetchID $hw $vrf]
+                            if ([:len $voucher] != 0 &&  [:find $macConnected $mac] = []) do={
+                                $saveMAC $currentMac $voucher $fileConnected
+                                :set saveCounter 11
+                            }
+                        }
+
+                    :put ("	Interface\t: $hw@$vrf")
+                    :put ("	User\t\t: $voucher")
+                    :put ("	Current Mac\t: $currentMac")
+                    :put ("	Model\t\t: ". [:convert "$identity" from=hex to=raw])
+                    :delay $up
+        
+                    } else={
+                    :set change 1
+                        if ($saveCounter = 0 &&  [:find $macConnected $currentMac] = []) do={
+                             $addExclude $currentMac $fileExclude
+                         }
+                        
+                    :local random [$randomHW]
+                    :set identity ($random ->1)
+                    :set stuckMac ($random ->0)
+                    :put ("	Model\t: ". [:convert "$identity" from=hex to=raw])
+                    :put ("	Oui\t: $stuckMac")
+                    :put ("	Set Mac\t: $mac")
+                    :put [$changeMAC $hw $mac $identity $stuckMac]
+                    :delay $down
+                    }
+                }
+            }
+        
+    }
+}

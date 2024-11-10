@@ -4,7 +4,21 @@
     :global macConnected
     :if ([:find $macConnected $1] = [] ) do={
         :set ($macConnected -> $2) "$1"
+        /file set $3 contents=$macConnected
+        :put "	Append to connected"
     }
+     
+}
+
+# Fungsi untuk menambahkan mac yang dilarang
+:global addExclude do={
+    :global macExclude
+    :local index [:len $macExclude]
+    if ([:find $macExclude $1] = []) do={
+        :set ($macExclude -> $index) "$1"
+        /file set $2 contents=$macExclude
+        :put "	Append to exclude"
+    }  
 }
 
 # Fungsi untuk memindai dan menyimpan MAC yang ditemukan
@@ -14,10 +28,15 @@
     :local scanResults [:toarray [/tool mac-scan $1 duration=$2 as-value proplist=mac-address]];
     :local index [:len $macAddresses];
     :foreach entry in=$scanResults do={
-        :local mac [:pick $entry ([:find $entry "="] + 1) [:len $entry]];
-        :if ([:find $macAddresses $mac] = [] && [:find $macExclude $mac] = []) do={
-            :set ($macAddresses -> $index) "$mac";
-            :set index ($index + 1);
+        :if ([:find $entry "mac-address"] != "") do={
+            :local mac [: tostr [:pick $entry ([:find $entry "="] + 1) [:len $entry]]]
+            :set mac [:pick $mac ([:find $mac "="] + 1) [:len $mac]]
+        
+            :if ([:find $macAddresses $mac] = [] && \
+                 [:find $macExclude $mac] = []) do={
+                :set ($macAddresses -> $index) "$mac"
+                :set index ($index + 1)
+            }
         }
     }
 }
@@ -30,7 +49,8 @@
 # Fungsi untuk mengambil kode voucher dari gateway tertentu
 :global fetchID do={
     :local gateway [/ip dhcp-client get [find interface=$1] value-name=gateway];
-    :local result [/tool fetch address="$gateway@$2" url=/status mode=http as-value output=user];
+:local result
+do { :set result [/tool fetch address="$gateway@$2" url=/status mode=http as-value output=user]; } on-error={}
     :if ($result -> "status" = "finished") do={
         :local data ($result -> "data");
         :local startPos [:find $data "<h1>Hi, "];
@@ -38,7 +58,7 @@
         :if ($startPos != "") do={
             :return [:pick $data ($startPos + 8) $endPos];
         }
-    }
+    } else={:return $result}
 }
 
 :global randomHW do={
@@ -123,7 +143,7 @@
 # Ganti tiga byte pertama dengan OUI yang dipilih
 :set rndmac "$selectedOUI$[:pick $rndmac 8 [:len $rndmac]]"
 :set selectedModel [:convert $selectedModel to=hex]
-:put $selectedBrand
+:put ("	$selectedBrand")
 # Cetak MAC Address dan model acak dari array
 :return [:toarray "$rndmac,$selectedModel"]
 

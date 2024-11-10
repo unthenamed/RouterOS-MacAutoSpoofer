@@ -1,0 +1,5 @@
+:while ([:len [/system script environment find name=main]] = 0) do={:delay 5}
+
+:if ([:len [/system script job find script=main1]] = 0) do={/system script run main1} ;
+:if ([:len [/system script job find script=main2]] = 0) do={/system script run main2} ;
+:if ([:len [/system script job find script=main3]] = 0) do={/system script run main3} ;

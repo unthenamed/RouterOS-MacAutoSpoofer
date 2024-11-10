@@ -1,0 +1,9 @@
+:global config {
+    "hwList"="3";
+    "excludeFile"="exclude.txt";
+    "saveFile"="saved.txt";
+    "durationScan"="290";
+    "pingSrc"="172.16.194.101";
+    "delayUp"="10";
+    "delayDown"="5"
+}
