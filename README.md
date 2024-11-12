@@ -9,8 +9,8 @@
 │   ├── load-library\
 │   └── load-main\
 └── script\
-\t    ├── config\
-    ├── library\
+    ├── config\
+     ├── library\
     ├── main\
     └── run1
 
