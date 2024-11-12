@@ -1,18 +1,18 @@
-.\
-├── LICENSE\
-├── README.md\
-├── file\
-│   ├── exclude.txt\
-│   └── saved.txt\
-├── scheduler\
-│   ├── autoscan.rsc\
-│   ├── load-library\
-│   └── load-main\
-└── script\
-    ├── config\
-     ├── library\
-    ├── main\
-    └── run1
+.\\
+├── LICENSE\\
+├── README.md\\
+├── file\\
+\t├── exclude.txt\\
+\t└── saved.txt\\
+├── scheduler\\
+\t├── autoscan.rsc\\
+\t├── load-library\\
+\t└── load-main\\
+└── script\\
+\t├── config\\
+\t├── library\\
+\t├── main\\
+\t└── run1\\
 
 ### Disclaimer
 
