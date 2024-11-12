@@ -1,19 +1,5 @@
-.\\
-├── LICENSE\\
-├── README.md\\
-├── file\\
-\t├── exclude.txt\\
-\t└── saved.txt\\
-├── scheduler\\
-\t├── autoscan.rsc\\
-\t├── load-library\\
-\t└── load-main\\
-└── script\\
-\t├── config\\
-\t├── library\\
-\t├── main\\
-\t└── run1\\
 
+. ├── LICENSE ├── README.md ├── file │   ├── exclude.txt │   └── saved.txt ├── scheduler │   ├── autoscan.rsc │   ├── load-library │   └── load-main └── script ├── config ├── library ├── main └── run1
 ### Disclaimer
 
 **Peringatan:** Kode ini disediakan untuk tujuan pendidikan dan pengujian saja. Penggunaan teknik *MAC spoofing* dapat melanggar hukum di beberapa yurisdiksi dan/atau melanggar kebijakan jaringan tempat kode ini digunakan. Penggunaan tanpa izin yang sah dari pemilik jaringan atau perangkat dapat dianggap sebagai tindakan ilegal.
